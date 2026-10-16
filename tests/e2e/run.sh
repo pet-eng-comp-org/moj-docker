@@ -22,8 +22,8 @@ fim() {
   if (( rc != 0 )); then
     echo "::group::logs da stack"; "${DC[@]}" logs --no-color --tail 80 || true; echo "::endgroup::"
     echo "::group::relatório do primeiro envio"
-    "${DC[@]}" exec -T api sh -c 'f=$(ls /data/contests/treino/users/*/results/*.json 2>/dev/null | head -1);
-      [ -n "$f" ] && head -c 4000 "$f"' || true
+    "${DC[@]}" exec -T api sh -c 'f=$(ls /data/contests/treino/users/*/mojlog/*.html.gz 2>/dev/null | head -1);
+      [ -n "$f" ] && zcat "$f" | sed "s/<[^>]*>//g" | grep -v "^[[:space:]]*$" | head -80' || true
     echo; echo "::endgroup::"
   fi
   [[ "${MANTER:-}" == 1 ]] || "${DC[@]}" down -v --remove-orphans >/dev/null 2>&1 || true
