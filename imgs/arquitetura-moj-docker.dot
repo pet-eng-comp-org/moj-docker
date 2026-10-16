@@ -1,0 +1,31 @@
+// Arquitetura do moj-docker (docker-compose.yml + docker-compose.traefik.yml).
+// Gerar a imagem: dot -Tpng -Gdpi=144 arquitetura-moj-docker.dot -o arquitetura-moj-docker.png
+digraph mojdocker {
+  graph [fontname="Helvetica", fontsize=13, rankdir=TB, nodesep=0.35, ranksep=0.5, bgcolor="white", pad=0.25];
+  node  [fontname="Helvetica", fontsize=12, shape=box, style="rounded,filled", fillcolor="#e8f4ec", color="#3c8d5a"];
+  edge  [fontname="Helvetica", fontsize=10, color="#555555"];
+
+  usuario [label="Navegador\n(competidor, juiz, staff)", fillcolor="#fff7e0", color="#c99a2e"];
+
+  subgraph cluster_host {
+    label="Máquina com Docker: docker compose up"; style="rounded,dashed"; color="#888888";
+    traefik [label="Traefik (opcional)\nHTTPS + IP real", fillcolor="#f3f3f3", color="#777777"];
+    subgraph cluster_internal {
+      label="rede internal (sem internet)"; style="rounded"; color="#3c8d5a";
+      web    [label="web\nnginx + site"];
+      api    [label="api\nAPI + 1ª subida automática\n(treino, admin, token)"];
+      judged [label="judged\nfila de julgamento"];
+      judge  [label="judge (perfil juiz)\ncdjudge + jaula bwrap\n+ compiladores da Maratona"];
+    }
+    volumes [label="volumes moj_run  moj_contests\nmoj_problems  moj_news", shape=cylinder, fillcolor="#f3f3f3", color="#777777"];
+  }
+
+  externo [label="Juízes em outras máquinas\n(opcional, mesma fila)", fillcolor="#f3f3f3", color="#777777"];
+
+  usuario -> traefik [label=" HTTPS"];
+  traefik -> web;
+  web -> api [label=" socket no volume run"];
+  judge -> web [label=" HTTP"];
+  api -> volumes; judged -> volumes;
+  externo -> traefik [label=" HTTPS (pull)", style=dashed];
+}

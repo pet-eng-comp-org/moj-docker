@@ -1,0 +1,29 @@
+name: Limpa o cache do GitHub Actions
+
+# O cache de build (type=gha) tem 10 GB por repositório, e só o rootfs do juiz ocupa uns 3. Uma
+# vez por semana apaga o cache dos pull requests já fechados, que ninguém vai reaproveitar.
+on:
+  schedule:
+    - cron: '15 10 * * 0'
+  workflow_dispatch:
+
+jobs:
+  limpa:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - run: |
+          set -euo pipefail
+          abertos=$(gh pr list --state open --json number --jq '.[].number')
+          gh cache list --limit 1000 --json id,ref --jq '.[] | select(.ref | startswith("refs/pull/")) | "\(.id) \(.ref)"' |
+          while read -r id ref; do
+            pr=$(echo "$ref" | cut -d/ -f3)
+            if ! grep -qx "$pr" <<<"$abertos"; then
+              gh cache delete "$id" && echo "apagado: cache $id do PR #$pr"
+            fi
+          done

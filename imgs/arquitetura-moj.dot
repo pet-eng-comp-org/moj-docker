@@ -1,0 +1,36 @@
+// Arquitetura do MOJ como os autores o implantam (vendor/cdmoj/docs/DEPLOY.md).
+// Gerar a imagem: dot -Tpng -Gdpi=144 arquitetura-moj.dot -o arquitetura-moj.png
+digraph moj {
+  graph [fontname="Helvetica", fontsize=13, rankdir=TB, nodesep=0.35, ranksep=0.5, bgcolor="white", pad=0.25];
+  node  [fontname="Helvetica", fontsize=12, shape=box, style="rounded,filled", fillcolor="#eef3fb", color="#4a6fa5"];
+  edge  [fontname="Helvetica", fontsize=10, color="#555555"];
+
+  usuario [label="Navegador\n(competidor, juiz, staff)", shape=box, fillcolor="#fff7e0", color="#c99a2e"];
+
+  subgraph cluster_servidor {
+    label="Servidor (instalação manual)"; style="rounded,dashed"; color="#888888";
+    nginx   [label="nginx do sistema\n(site estático + /api/v1)"];
+    subgraph cluster_podman {
+      label="podman (quadlets)"; style="rounded"; color="#4a6fa5";
+      api     [label="moj-api\nfcgiwrap + API em bash"];
+      judged  [label="moj-judged\nfila de julgamento"];
+    }
+    dados [label="contests/  moj-problems/  run/\n(pastas no disco)", shape=cylinder, fillcolor="#f3f3f3", color="#777777"];
+    bot   [label="mojinho-bot\n(Telegram)", fillcolor="#f3f3f3", color="#777777"];
+    passos [label="à mão: treino, 1º admin, token dos juízes,\nnginx, certificado, timers", shape=note, fillcolor="#fdecea", color="#c0504d"];
+  }
+
+  subgraph cluster_juizes {
+    label="Máquinas de juiz (instalação manual)"; style="rounded,dashed"; color="#888888";
+    juiz1 [label="cdjudge (moj-agent)\njaula bwrap do mojtools\n+ compiladores no host"];
+    juiz2 [label="cdjudge (moj-agent)\n…"];
+  }
+
+  usuario -> nginx [label=" HTTPS"];
+  nginx -> api [label=" socket unix"];
+  api -> dados; judged -> dados;
+  bot -> api [style=dashed];
+  juiz1 -> nginx [label=" HTTPS (pull)"];
+  juiz2 -> nginx [label=" HTTPS (pull)"];
+  passos -> nginx [style=invis];
+}

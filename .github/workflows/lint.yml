@@ -1,0 +1,29 @@
+name: Lint
+
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+    branches: [main, development]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+  statuses: write
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # o super-linter compara com a branch de destino para ver só o que mudou
+          fetch-depth: 0
+
+      - name: Carrega a configuração
+        run: grep -v '^#' .github/super-linter.env | grep . >> "$GITHUB_ENV"
+
+      - uses: super-linter/super-linter/slim@v8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
