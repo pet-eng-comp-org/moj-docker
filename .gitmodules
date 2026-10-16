@@ -1,0 +1,6 @@
+[submodule "vendor/cdmoj"]
+	path = vendor/cdmoj
+	url = https://github.com/cd-moj/cdmoj.git
+[submodule "vendor/mojtools"]
+	path = vendor/mojtools
+	url = https://github.com/cd-moj/mojtools.git
