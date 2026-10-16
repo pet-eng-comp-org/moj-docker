@@ -67,4 +67,6 @@ jobs:
           load: true
 
       - name: Roda o teste
-        run: tests/e2e/run.sh
+        run: |
+          sysctl kernel.apparmor_restrict_unprivileged_userns kernel.unprivileged_userns_clone || true
+          tests/e2e/run.sh
