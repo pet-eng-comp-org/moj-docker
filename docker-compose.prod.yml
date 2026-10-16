@@ -4,7 +4,7 @@
 # jobs da API pela internet (vendor/cdmoj/server/judge-gw/PULL.md).
 # As linhas image: são reescritas pelo job implanta do CI; não editar o digest à mão.
 x-moj: &moj
-  image: ghcr.io/pet-eng-comp-org/moj/server:sha-0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  image: ghcr.io/pet-eng-comp-org/moj/server:sha-fa032c3ed4c1cc0019273a13a52fac2f4330687c@sha256:542da22f7a0fbfd68d96878e98007fde6e36896e7f078f1b730238cc2803f12a
   init: true
   restart: unless-stopped
   logging:
@@ -43,7 +43,7 @@ services:
       JUDGE_BACKEND: queue
 
   web:
-    image: ghcr.io/pet-eng-comp-org/moj/web:sha-0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    image: ghcr.io/pet-eng-comp-org/moj/web:sha-fa032c3ed4c1cc0019273a13a52fac2f4330687c@sha256:58bdc5c371ba80c4bb13021ea3ecb7d5c3574df7c8d469e1f5930bb5bd2fc33e
     restart: unless-stopped
     depends_on: [api]
     logging:
