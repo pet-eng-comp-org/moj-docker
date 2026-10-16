@@ -1,0 +1,8 @@
+# Para testar na própria máquina: o site em http://localhost:8080 (MOJ_PORT muda a porta).
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml --profile juiz up -d
+services:
+  web:
+    ports:
+      - "${MOJ_PORT:-8080}:80"
+    networks:
+      default: {}

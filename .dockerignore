@@ -1,5 +1,0 @@
-# Só para a imagem web (contexto = raiz). A imagem do servidor usa a .containerignore do cdmoj.
-**/.git
-vendor/mojtools
-vendor/cdmoj/server
-vendor/cdmoj/mojinho-bot

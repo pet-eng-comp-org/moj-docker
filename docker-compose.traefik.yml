@@ -1,0 +1,25 @@
+# Atrás de um Traefik que já roda na máquina, com TLS pelo Let's Encrypt.
+#   MOJ_HOST              domínio do site (ex.: moj.pet.inf.ufes.br)
+#   MOJ_TRUSTED_PROXIES   faixa da rede do Traefik (docker network inspect traefik); sem ela a
+#                         trava por IP da prova vê todo mundo com o IP do Traefik
+#   TRAEFIK_NETWORK       rede do Traefik (padrão: traefik)
+#   TRAEFIK_ENTRYPOINT    entrypoint HTTPS (padrão: websecure)
+#   TRAEFIK_CERTRESOLVER  resolvedor de certificado (padrão: le)
+services:
+  web:
+    environment:
+      MOJ_TRUSTED_PROXIES: ${MOJ_TRUSTED_PROXIES:?defina MOJ_TRUSTED_PROXIES com a faixa da rede do Traefik}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${TRAEFIK_NETWORK:-traefik}"
+      - "traefik.http.routers.moj_web.rule=Host(`${MOJ_HOST:?defina MOJ_HOST}`)"
+      - "traefik.http.routers.moj_web.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
+      - "traefik.http.routers.moj_web.tls.certresolver=${TRAEFIK_CERTRESOLVER:-le}"
+      - "traefik.http.services.moj_web.loadbalancer.server.port=80"
+    networks:
+      traefik: {}
+
+networks:
+  traefik:
+    name: ${TRAEFIK_NETWORK:-traefik}
+    external: true

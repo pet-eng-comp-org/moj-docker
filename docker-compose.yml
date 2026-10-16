@@ -1,0 +1,119 @@
+# moj-docker: o MOJ (https://github.com/cd-moj/cdmoj) em containers.
+# api e judged são a mesma imagem (o cdmoj e a primeira subida automática); web é o nginx com o
+# site; judge é o juiz (agente do cdjudge com os compiladores), ligado pelo perfil "juiz".
+# Este arquivo não publica porta nenhuma: junte com docker-compose.local.yml (testar na própria
+# máquina) ou docker-compose.traefik.yml (atrás do Traefik). Ver o README.
+# As linhas image: são reescritas pelo job implanta do CI; não editar o digest à mão.
+name: moj
+
+x-moj: &moj
+  image: ghcr.io/pet-eng-comp-org/moj-docker/server:sha-0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  init: true
+  restart: unless-stopped
+  logging: &log
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+  environment: &env
+    INTAKE_MODE: queue
+    FCGI_UMASK: "000"          # o socket da API é lido pelo nginx de outro container
+    # caminhos rápidos de produção (pool bash e leitor Python das rotas quentes): exigem os
+    # snippets de rota no nginx; só fazem diferença com milhares de acessos
+    MOLDE_DISABLE: "1"
+    PORTEIRO_DISABLE: "1"
+    ANIMEITOR_FEED_DISABLE: "1"
+  volumes:
+    - run:/data/run
+    - contests:/data/contests
+    - problems:/data/moj-problems
+    - news:/data/news
+  networks:
+    - internal
+
+services:
+  api:
+    <<: *moj
+    container_name: moj_api
+    command: api
+    environment:
+      <<: *env
+      # primeira subida: superadmin do treino (a senha sai no log se não for definida)
+      MOJ_ADMIN: ${MOJ_ADMIN:-admin.admin}
+      MOJ_ADMIN_PASSWORD: ${MOJ_ADMIN_PASSWORD:-}
+    sysctls:
+      net.core.somaxconn: 10000
+
+  judged:
+    <<: *moj
+    container_name: moj_judged
+    command: judged
+    environment:
+      <<: *env
+      JUDGE_BACKEND: queue
+
+  web:
+    container_name: moj_web
+    image: ghcr.io/pet-eng-comp-org/moj-docker/web:sha-0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    restart: unless-stopped
+    depends_on: [api]
+    logging: *log
+    environment:
+      MOJ_TRUSTED_PROXIES: ${MOJ_TRUSTED_PROXIES:-}
+    volumes:
+      - run:/moj/run
+      - contests:/moj/contests:ro
+    networks:
+      internal:
+        aliases: [moj-web]
+
+  # O juiz cria a jaula com user namespace (bwrap), e o Docker bloqueia isso por padrão. Os três
+  # security_opt liberam só o necessário, sem --privileged e sem capability nenhuma.
+  # Limite de memória por solução: no container ele é apurado pela memória medida depois da
+  # execução; o limite rígido (cgroup) só existe no juiz instalado direto na máquina (README).
+  judge:
+    container_name: moj_judge
+    image: ghcr.io/pet-eng-comp-org/moj-docker/judge:sha-0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    profiles: [juiz]
+    restart: unless-stopped
+    depends_on: [web]
+    logging: *log
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
+      - systempaths=unconfined
+    mem_limit: ${MOJ_JUDGE_MEM:-4g}
+    environment:
+      MOJ_API: http://moj-web/api/v1
+      AGENT_HOST: ${MOJ_JUDGE_HOST:-moj-docker}
+      AGENT_PARTITION: ${MOJ_JUDGE_PARTITION:-off}
+    volumes:
+      # do volume run, só a pasta com o token (a primeira subida da api a cria)
+      - type: volume
+        source: run
+        target: /run/moj
+        read_only: true
+        volume:
+          subpath: judge
+      - judge-cache:/home/juiz/cache
+    networks:
+      - internal
+
+# O nome fixo faz a stack achar os mesmos volumes se for recriada com outro nome de projeto.
+volumes:
+  run:
+    name: moj_run
+  contests:
+    name: moj_contests
+  problems:
+    name: moj_problems
+  news:
+    name: moj_news
+  judge-cache:
+    name: moj_judge-cache
+
+networks:
+  # sem internet: api e judged falam com o nginx pelo socket no volume run, e o juiz fala com o
+  # nginx por aqui
+  internal:
+    internal: true
