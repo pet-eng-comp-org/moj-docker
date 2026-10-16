@@ -7,7 +7,7 @@
 name: moj
 
 x-moj: &moj
-  image: ghcr.io/pet-eng-comp-org/moj-docker/server:sha-0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  image: ghcr.io/pet-eng-comp-org/moj-docker/server:sha-bc50475a325ba00ba419f7490c19c984f3394f52@sha256:6ea91f3404f1042ea7117d55a3cb1ccee79eb8d9b3a40ce69ec56f13ce7b85a7
   init: true
   restart: unless-stopped
   logging: &log
@@ -54,7 +54,7 @@ services:
 
   web:
     container_name: moj_web
-    image: ghcr.io/pet-eng-comp-org/moj-docker/web:sha-0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    image: ghcr.io/pet-eng-comp-org/moj-docker/web:sha-bc50475a325ba00ba419f7490c19c984f3394f52@sha256:a7630f3a75b363ab90a31455fd4c20cdc4fb4c9938aa4f1de8343153ce239ad4
     restart: unless-stopped
     depends_on: [api]
     logging: *log
@@ -73,7 +73,7 @@ services:
   # execução; o limite rígido (cgroup) só existe no juiz instalado direto na máquina (README).
   judge:
     container_name: moj_judge
-    image: ghcr.io/pet-eng-comp-org/moj-docker/judge:sha-0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    image: ghcr.io/pet-eng-comp-org/moj-docker/judge:sha-bc50475a325ba00ba419f7490c19c984f3394f52@sha256:81179d1c193c8b6e7a8851c4a699d80f3d7a33027c470c30f2f36277d75b5dca
     profiles: [juiz]
     restart: unless-stopped
     depends_on: [web]
