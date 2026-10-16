@@ -1,0 +1,5 @@
+# Regras do hadolint (super-linter).
+ignored:
+  # Fixar a versão de cada pacote do apt quebra o build a cada atualização de segurança do
+  # Debian. As imagens já fixam a base pelo digest e são reconstruídas pelo CI.
+  - DL3008

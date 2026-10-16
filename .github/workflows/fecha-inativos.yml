@@ -1,0 +1,30 @@
+name: Fecha issues e PRs inativos
+
+on:
+  schedule:
+    - cron: '30 18 * * *'
+  workflow_dispatch:
+
+jobs:
+  fecha:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/stale@v11
+        with:
+          days-before-stale: 60
+          days-before-close: 14
+          stale-issue-label: inativo
+          stale-pr-label: inativo
+          exempt-issue-labels: fixado,seguranca
+          exempt-pr-labels: fixado,seguranca
+          stale-issue-message: >-
+            Esta issue está sem movimento há 60 dias e será fechada em 14 dias se nada mudar.
+            Se ela ainda vale, é só comentar.
+          stale-pr-message: >-
+            Este PR está sem movimento há 60 dias e será fechado em 14 dias se nada mudar.
+            Se ele ainda vale, é só comentar ou mandar um commit.
+          close-issue-message: Fechada por falta de movimento. Pode reabrir se voltar a valer.
+          close-pr-message: Fechado por falta de movimento. Pode reabrir se voltar a valer.
