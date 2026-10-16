@@ -1,16 +1,22 @@
-name: Publica imagem no GHCR
+name: CI
 
-# Constrói e publica as imagens no GHCR. Na main, o job implanta grava o digest do que mudou no
-# docker-compose.yml; quem acompanha esse arquivo (o Portainer do PET) aplica.
+# Constrói as imagens, testa a stack de ponta a ponta e publica no GHCR. Na main, o job implanta
+# grava o digest do que mudou no docker-compose.yml; quem acompanha esse arquivo (o Portainer do
+# PET) aplica. As versões (1.2.3) saem do versiona.yml.
 # Atualizar o MOJ = mover os submódulos de vendor/ para o commit novo do upstream num PR.
 on:
   push:
-    branches: [main]
+    branches: [main, development]
     paths:
       - 'vendor/**'
       - 'imagens/**'
+      - 'docker-bake.hcl'
+      - 'docker-compose*.yml'
+      - 'tests/e2e/**'
       - '.github/workflows/publica-imagem.yml'
+      - '.github/workflows/teste-e2e.yml'
   pull_request:
+    branches: [main, development]
   workflow_dispatch:
 
 jobs:
@@ -24,19 +30,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # base = imagem que esta usa no FROM, publicada antes dela no mesmo job
+          # cada imagem com a base dela (docker-bake.hcl), publicada junto
           - servico: server
-            base: server-base
-            base_contexto: ./vendor
-            base_arquivo: ./vendor/cdmoj/deploy/Containerfile
-            base_arg: MOJ_BASE
+            alvos: server-base,server
           - servico: web
+            alvos: web
           - servico: judge
-            base: sysroot
-            base_contexto: ./vendor/mojtools/sysroot
-            base_arquivo: ./vendor/mojtools/sysroot/Containerfile
-            base_arg: MOJ_SYSROOT
+            alvos: sysroot,judge
     env:
+      # pull request só constrói: quem vem de fork ou do Dependabot não pode publicar
       PUBLICA: ${{ github.event_name != 'pull_request' }}
     steps:
       - uses: actions/checkout@v7
@@ -45,62 +47,46 @@ jobs:
 
       - uses: docker/setup-buildx-action@v4
 
-      - uses: docker/login-action@v4
+      - if: env.PUBLICA == 'true'
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - id: nomes
-        run: |
-          img="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${{ github.event.repository.name }}"
-          echo "img=$img" >> "$GITHUB_OUTPUT"
-          # em pull request a base vai para uma tag de teste, para a imagem final poder usá-la
-          if [ "$PUBLICA" = true ]; then echo "tag=sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-          else echo "tag=pr-${{ github.event.number }}" >> "$GITHUB_OUTPUT"; fi
-
-      # o build do cdmoj usa a .containerignore dele (podman build --ignorefile); o Docker só lê
-      # .dockerignore na raiz do contexto
-      - if: matrix.servico == 'server'
-        run: cp vendor/cdmoj/deploy/.containerignore vendor/.dockerignore
-
-      - if: matrix.base
-        uses: docker/build-push-action@v7
-        with:
-          context: ${{ matrix.base_contexto }}
-          file: ${{ matrix.base_arquivo }}
-          push: true
-          tags: ${{ steps.nomes.outputs.img }}/${{ matrix.base }}:${{ steps.nomes.outputs.tag }}
-          # rootfs só com o núcleo do mojtools (C, C++, Java, Kotlin e Python, as linguagens da
-          # Maratona SBC): os extras (Rust, Haskell, Mono…) levavam a imagem do juiz de 3 a 6 GB
-          build-args: ${{ matrix.base == 'sysroot' && 'PKGS=' || '' }}
-          cache-from: type=gha,scope=${{ matrix.base }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.base }}
-
       - id: build
-        uses: docker/build-push-action@v7
+        uses: docker/bake-action@v7
+        env:
+          REGISTRY: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
+          TAGS: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || format('sha-{0}', github.sha) }}
+          CACHE: gha
         with:
-          context: .
-          file: ./imagens/${{ matrix.servico }}/Dockerfile
-          build-args: |
-            ${{ matrix.base_arg && format('{0}={1}/{2}:{3}', matrix.base_arg, steps.nomes.outputs.img, matrix.base, steps.nomes.outputs.tag) || '' }}
+          source: .
+          files: docker-bake.hcl
+          targets: ${{ matrix.alvos }}
           push: ${{ env.PUBLICA }}
-          tags: |
-            ${{ steps.nomes.outputs.img }}/${{ matrix.servico }}:${{ steps.nomes.outputs.tag }}
-            ${{ env.PUBLICA == 'true' && github.ref == 'refs/heads/main' && format('{0}/{1}:latest', steps.nomes.outputs.img, matrix.servico) || '' }}
-          cache-from: type=gha,scope=${{ matrix.servico }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.servico }}
 
       - if: env.PUBLICA == 'true'
+        env:
+          METADADOS: ${{ steps.build.outputs.metadata }}
         run: |
-          echo "Digest publicado (${{ matrix.servico }}): ${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "$METADADOS" | jq -r 'to_entries[] | "Digest publicado (\(.key)): \(.value["containerimage.digest"])"' \
+            >> "$GITHUB_STEP_SUMMARY"
+
+  e2e:
+    needs: build
+    uses: ./.github/workflows/teste-e2e.yml
+    with:
+      # em pull request as imagens não foram publicadas: o teste as reconstrói do cache
+      tag: ${{ github.event_name == 'pull_request' && 'local' || format('sha-{0}', github.sha) }}
+      publicadas: ${{ github.event_name != 'pull_request' }}
 
   # Publicar não é implantar: quem implanta é o commit abaixo, que grava o digest novo no
   # docker-compose.yml. Só troca o serviço cujos arquivos mudaram desde o commit que está em
   # produção (o :sha- anotado no compose). Esse commit é o registro do deploy: git revert nele
   # volta a versão anterior. O push feito com GITHUB_TOKEN não dispara este workflow de novo.
   implanta:
-    needs: build
+    needs: [build, e2e]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     concurrency: implanta
@@ -129,7 +115,8 @@ jobs:
           # dispara este workflow (os mesmos caminhos do on.push.paths), filtrado pelo
           # assunto; o awk lê tudo porque, com pipefail, sair cedo mataria o git log.
           novo=$(git log --format='%H%x09%s' "${GITHUB_SHA}..HEAD" -- vendor imagens \
-                   .github/workflows/publica-imagem.yml \
+                   docker-bake.hcl 'docker-compose*.yml' tests/e2e .github/workflows/publica-imagem.yml \
+                   .github/workflows/teste-e2e.yml \
                  | awk -F'\t' '!f && $2 !~ /^deploy:/ {print $1; f=1}')
           if [ -n "$novo" ]; then
             echo "Há commit mais novo ($novo); a execução dele implanta."; exit 0
@@ -174,7 +161,7 @@ jobs:
 
           O Portainer aplica em até 1 minuto. Para voltar: git revert deste commit." -- "$ARQ"
           # Merge que entrou entre o checkout e o push: rebase e tenta de novo.
-          for tentativa in 1 2 3; do
+          for _ in 1 2 3; do
             git push -q origin HEAD:main && exit 0
             sleep 5; git pull -q --rebase origin main
           done

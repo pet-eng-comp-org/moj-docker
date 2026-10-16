@@ -1,0 +1,75 @@
+name: Teste de ponta a ponta
+
+# Sobe a stack inteira, juiz incluído, cadastra um problema e confere o veredicto de um envio
+# por linguagem (tests/e2e/run.sh). Chamado pelo CI depois do build.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Tag das imagens a testar
+        required: true
+        type: string
+      publicadas:
+        description: As imagens estão no GHCR (false = reconstruir do cache de build)
+        required: true
+        type: boolean
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag das imagens a testar (ex. sha-<commit> ou 1.0.0)
+        required: true
+        type: string
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: read
+    env:
+      REGISTRY: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      # a imagem do juiz tem 3 GB e o cache de build mais alguns: abre espaço no runner
+      - name: Libera espaço em disco
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+
+      - if: inputs.publicadas || github.event_name == 'workflow_dispatch'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - if: inputs.publicadas || github.event_name == 'workflow_dispatch'
+        name: Baixa as imagens
+        run: |
+          for i in server web judge; do docker pull -q "$REGISTRY/$i:$TAG"; done
+
+      - if: ${{ !inputs.publicadas && github.event_name != 'workflow_dispatch' }}
+        uses: docker/setup-buildx-action@v4
+
+      - if: ${{ !inputs.publicadas && github.event_name != 'workflow_dispatch' }}
+        name: Reconstrói as imagens do cache
+        uses: docker/bake-action@v7
+        env:
+          TAGS: ${{ inputs.tag }}
+          CACHE: gha
+          CACHE_GRAVA: false
+        with:
+          source: .
+          files: docker-bake.hcl
+          load: true
+
+      # O runner é Ubuntu 24.04: lá a jaula do juiz falha ("bwrap: loopback: Failed RTM_NEWADDR")
+      # enquanto o AppArmor restringe user namespaces (README, "Problemas conhecidos").
+      - name: Libera user namespaces para a jaula do juiz
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Roda o teste
+        run: tests/e2e/run.sh

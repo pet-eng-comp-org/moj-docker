@@ -1,4 +1,33 @@
-# moj-docker
+# :balloon: moj-docker
+
+[![CI][ci_badge]][ci_link]
+[![Lint][lint_badge]][lint_link]
+[![Limpa o cache][cache_badge]][cache_link]
+[![Fecha inativos][stale_badge]][stale_link]
+
+[![Versão][release_badge]][release_link]
+[![Debian trixie][debian_badge]][debian_link]
+[![Ubuntu noble][ubuntu_badge]][ubuntu_link]
+[![amd64][arch_badge]][arch_link]
+[![Licença MIT][license_badge]](LICENSE)
+
+[ci_badge]: https://img.shields.io/github/actions/workflow/status/pet-eng-comp-org/moj-docker/publica-imagem.yml?branch=main&label=build%20%2B%20e2e&logo=github
+[ci_link]: https://github.com/pet-eng-comp-org/moj-docker/actions/workflows/publica-imagem.yml
+[lint_badge]: https://img.shields.io/github/actions/workflow/status/pet-eng-comp-org/moj-docker/lint.yml?label=lint&logo=github
+[lint_link]: https://github.com/pet-eng-comp-org/moj-docker/actions/workflows/lint.yml
+[cache_badge]: https://img.shields.io/github/actions/workflow/status/pet-eng-comp-org/moj-docker/limpa-cache.yml?label=limpa%20cache&logo=github
+[cache_link]: https://github.com/pet-eng-comp-org/moj-docker/actions/workflows/limpa-cache.yml
+[stale_badge]: https://img.shields.io/github/actions/workflow/status/pet-eng-comp-org/moj-docker/fecha-inativos.yml?label=fecha%20inativos&logo=github
+[stale_link]: https://github.com/pet-eng-comp-org/moj-docker/actions/workflows/fecha-inativos.yml
+[release_badge]: https://img.shields.io/github/v/release/pet-eng-comp-org/moj-docker?label=vers%C3%A3o
+[release_link]: https://github.com/pet-eng-comp-org/moj-docker/releases/latest
+[debian_badge]: https://img.shields.io/badge/servidor-debian%20trixie-A81D33.svg?logo=debian
+[debian_link]: https://hub.docker.com/_/debian
+[ubuntu_badge]: https://img.shields.io/badge/compiladores-ubuntu%20noble-E95420.svg?logo=ubuntu
+[ubuntu_link]: https://hub.docker.com/_/ubuntu
+[arch_badge]: https://img.shields.io/badge/arch-amd64-lightgray.svg?logo=docker&logoColor=white
+[arch_link]: https://github.com/orgs/pet-eng-comp-org/packages?repo_name=moj-docker
+[license_badge]: https://img.shields.io/github/license/pet-eng-comp-org/moj-docker?label=licen%C3%A7a
 
 O [MOJ](https://github.com/cd-moj/cdmoj) em containers Docker: a plataforma, o site e o juiz
 sobem com um `docker compose up`.
@@ -10,14 +39,18 @@ sobem com um `docker compose up`.
 - [Requisitos](#requisitos)
 - [Início rápido](#início-rápido)
 - [Como funciona](#como-funciona)
-- [Em produção, atrás do Traefik](#em-produção-atrás-do-traefik)
+- [Como implantar atrás do Traefik](#como-implantar-atrás-do-traefik)
 - [O juiz: no container ou na máquina](#o-juiz-no-container-ou-na-máquina)
-- [Variáveis](#variáveis)
-- [Construir as imagens](#construir-as-imagens)
-- [Atualizar o MOJ](#atualizar-o-moj)
+- [Configuração](#configuração)
+- [Versões e tags das imagens](#versões-e-tags-das-imagens)
+- [Como construir (para desenvolvimento)](#como-construir-para-desenvolvimento)
+- [Como publicar](#como-publicar)
+- [Como atualizar o MOJ](#como-atualizar-o-moj)
+- [Como contribuir](#como-contribuir)
 - [Problemas conhecidos](#problemas-conhecidos)
 - [Quem usa](#quem-usa)
 - [Licença](#licença)
+- [Suporte](#suporte)
 
 ## O que é o MOJ
 
@@ -36,29 +69,45 @@ A instância pública fica em <https://moj.naquadah.com.br>. A documentação of
 
 ## Por que o moj-docker
 
-O `cdmoj` já traz um Containerfile e units do podman para a plataforma. Faltava subir tudo,
-juiz incluído, num lugar que só tem Docker, e sem passos manuais. O moj-docker acrescenta:
+Os autores implantam o MOJ numa máquina preparada à mão: nginx do sistema, a plataforma em
+containers do podman, e cada juiz instalado na sua máquina com os compiladores. A primeira conta
+de administrador, o treino e o token dos juízes também são criados à mão
+(`vendor/cdmoj/docs/ADMIN.md`, seções 2 e 5). O moj-docker leva tudo isso para o Docker:
 
-- **Docker Compose** com os quatro serviços, e um arquivo extra para rodar atrás do Traefik;
-- **a primeira subida automática**: o treino, a primeira conta de administrador e o token dos
-  juízes, que no MOJ nascem à mão (`vendor/cdmoj/docs/ADMIN.md`, seções 2 e 5);
-- **o juiz num container**, com os compiladores dentro e sem `--privileged`;
-- **o IP real do visitante** atrás de um proxy, que a trava por IP das provas exige;
-- **imagens publicadas** no GHCR a cada mudança, com deploy contínuo pelo digest.
+- Docker Compose com os quatro serviços, e um arquivo extra para rodar atrás do Traefik;
+- a primeira subida automática: o treino, o primeiro administrador e o token dos juízes;
+- o juiz num container, com os compiladores da Maratona dentro e sem `--privileged`;
+- o IP real do visitante atrás de um proxy, que a trava por IP das provas exige;
+- imagens publicadas no GHCR, testadas de ponta a ponta a cada mudança.
+
+| Como os autores implantam | Com o moj-docker |
+| :---: | :---: |
+| ![Arquitetura original do MOJ](imgs/arquitetura-moj.png 'Arquitetura original do MOJ') | ![Arquitetura do moj-docker](imgs/arquitetura-moj-docker.png 'Arquitetura do moj-docker') |
 
 O código do MOJ não é alterado: os três repositórios entram como submódulos em `vendor/`,
-fixados num commit testado. O modelo é o [boca-docker](https://github.com/rlaiola/boca-docker),
-do Prof. Rodrigo Laiola Guimarães (Ufes), que faz o mesmo pelo BOCA.
+fixados num commit testado.
+
+O projeto começou no PET Engenharia de Computação da Ufes, para hospedar o treino e as provas
+do Topcom, o torneio de programação da Ufes. O modelo é o
+[boca-docker](https://github.com/rlaiola/boca-docker), do Prof. Rodrigo Laiola Guimarães
+(Ufes), que faz o mesmo pelo BOCA.
 
 ## Requisitos
 
 - Docker com o plugin Compose (Docker Desktop ou Docker Engine);
-- Linux x86-64 para o juiz (o rootfs dos compiladores é amd64);
+- Linux x86-64 para o juiz (os compiladores são amd64);
 - Git, só para construir as imagens.
 
 ## Início rápido
 
-1. Baixe os arquivos `docker-compose.yml` e `docker-compose.local.yml` para uma pasta.
+1. Baixe os arquivos da última versão para uma pasta:
+
+   ```sh
+   for f in docker-compose.yml docker-compose.local.yml; do
+     curl -fsSLO "https://github.com/pet-eng-comp-org/moj-docker/releases/latest/download/$f"
+   done
+   ```
+
 2. Suba tudo, juiz incluído:
 
    ```sh
@@ -74,9 +123,10 @@ do Prof. Rodrigo Laiola Guimarães (Ufes), que faz o mesmo pelo BOCA.
 4. Abra <http://localhost:8080/treino/> e entre como `admin.admin`. Para escolher a senha antes
    de subir, defina `MOJ_ADMIN_PASSWORD`.
 
-O juiz leva alguns minutos na primeira vez: ele mede o tempo-limite de cada problema antes de
-julgar envios para ele (a "calibração"). Para parar, use o mesmo comando com `down` no lugar de
-`up -d`. Os dados ficam nos volumes `moj_*` e sobrevivem ao `down`; `down -v` apaga tudo.
+Na primeira vez, o juiz leva alguns minutos para julgar o envio inicial de cada problema: antes,
+ele mede o tempo-limite do problema (a "calibração"). Para parar, use o mesmo comando com `down`
+no lugar de `up -d`. Os dados ficam nos volumes `moj_*` e sobrevivem ao `down`; `down -v` apaga
+tudo.
 
 Para cadastrar problemas e montar provas, o guia do organizador está em `/treino/criar/` na
 própria plataforma.
@@ -84,7 +134,7 @@ própria plataforma.
 ## Como funciona
 
 | Serviço | Imagem | O que faz |
-|---|---|---|
+| --- | --- | --- |
 | `api` | `server` | A API do MOJ (scripts bash servidos pelo fcgiwrap num socket unix). Na primeira subida, cria o treino, o administrador e o token dos juízes. |
 | `judged` | `server` | Recebe os envios e os põe na fila de julgamento, por ordem de prioridade (prova antes de treino). |
 | `web` | `web` | O nginx: serve o site e passa `/api/v1/` para o socket da API. É o único serviço que recebe conexões de fora. |
@@ -98,7 +148,7 @@ nginx pelo socket, e o juiz fala com o nginx por essa rede.
 O juiz é o único que mede tempo. Ele não precisa estar na mesma máquina: qualquer computador
 com acesso à API pode ser juiz, e vários juízes dividem a mesma fila.
 
-## Em produção, atrás do Traefik
+## Como implantar atrás do Traefik
 
 Com um Traefik já rodando na máquina e um domínio apontando para ela:
 
@@ -120,7 +170,7 @@ ambiente da stack.
 ## O juiz: no container ou na máquina
 
 | | Juiz no container (`--profile juiz`) | Juiz instalado na máquina |
-|---|---|---|
+| --- | --- | --- |
 | Instalação | nenhuma | `vendor/cdjudge/README.md` (`make install`) |
 | Limite de memória da solução | apurado pela memória medida depois da execução | rígido: o cgroup mata a solução no instante em que passa |
 | Indicado para | testes, treino, aulas | provas |
@@ -130,8 +180,7 @@ A diferença vem da jaula do `mojtools`: o limite rígido usa um gerenciador `sy
 container do juiz tem um teto de memória próprio (`MOJ_JUDGE_MEM`, padrão 4 GB) para proteger o
 resto da máquina.
 
-Para o juiz na máquina, o rootfs dos compiladores pode sair da imagem `sysroot` deste
-repositório:
+Para o juiz na máquina, os compiladores podem sair da imagem `sysroot` deste repositório:
 
 ```sh
 cid=$(docker create ghcr.io/pet-eng-comp-org/moj-docker/sysroot:latest true)
@@ -149,16 +198,15 @@ não roda como root.
 
 ### Linguagens
 
-O rootfs do juiz traz o núcleo do `mojtools`: C, C++, Java, Kotlin e Python (CPython e PyPy),
-que são as linguagens da Maratona SBC. O `mojtools` sabe instalar outras (Pascal, C#, Go, Rust,
-Haskell, JavaScript, OCaml, Prolog), mas elas deixam a imagem do juiz com 6 GB em vez de 3.
-Para incluí-las, construa o `sysroot` sem o `--build-arg PKGS=` (ver
-[Construir as imagens](#construir-as-imagens)).
+O juiz traz o núcleo do `mojtools`: C, C++, Java, Kotlin e Python (CPython e PyPy), que são as
+linguagens da Maratona SBC. O `mojtools` sabe instalar outras (Pascal, C#, Go, Rust, Haskell,
+JavaScript, OCaml, Prolog), mas elas deixam a imagem do juiz com 6 GB em vez de 3. Para
+incluí-las, veja o alvo `sysroot` no `docker-bake.hcl`.
 
-## Variáveis
+## Configuração
 
 | Variável | Padrão | Para quê |
-|---|---|---|
+| --- | --- | --- |
 | `MOJ_ADMIN` | `admin.admin` | Login do primeiro administrador (tem de terminar em `.admin`). Só vale na primeira subida. |
 | `MOJ_ADMIN_PASSWORD` | gerada e mostrada no log | Senha dele. Só vale na primeira subida. |
 | `MOJ_PORT` | `8080` | Porta do site no `docker-compose.local.yml`. |
@@ -169,58 +217,114 @@ Para incluí-las, construa o `sysroot` sem o `--build-arg PKGS=` (ver
 | `MOJ_JUDGE_HOST` | `moj-docker` | Nome do juiz no painel. |
 | `TRAEFIK_NETWORK`, `TRAEFIK_ENTRYPOINT`, `TRAEFIK_CERTRESOLVER` | `traefik`, `websecure`, `le` | Como o Traefik da máquina está configurado. |
 
-## Construir as imagens
+## Versões e tags das imagens
+
+As imagens ficam em `ghcr.io/pet-eng-comp-org/moj-docker/<imagem>`:
+
+| Imagem | O que é |
+| --- | --- |
+| `server` | A plataforma (serviços `api` e `judged`). |
+| `web` | O nginx com o site. |
+| `judge` | O juiz, com os compiladores. |
+| `server-base` | A imagem do MOJ como os autores a constroem, base da `server`. |
+| `sysroot` | Os compiladores, base da `judge` e do juiz instalado na máquina. |
+
+| Tag | O que aponta |
+| --- | --- |
+| `1.0.0`, `1.0` | Uma versão, com os commits do MOJ listados no [release](https://github.com/pet-eng-comp-org/moj-docker/releases). |
+| `latest` | A última versão. |
+| `sha-<commit>` | O build de um commit da `main` ou da `development`. O `docker-compose.yml` da `main` fixa o que está em produção pelo digest. |
+
+## Como construir (para desenvolvimento)
 
 ```sh
 git clone --recurse-submodules https://github.com/pet-eng-comp-org/moj-docker.git
 cd moj-docker
-# server: primeiro a imagem do cdmoj, depois a camada do moj-docker
-cp vendor/cdmoj/deploy/.containerignore vendor/.dockerignore
-docker build -t moj-docker/server-base -f vendor/cdmoj/deploy/Containerfile vendor
-rm vendor/.dockerignore
-docker build -t moj-docker/server -f imagens/server/Dockerfile .
-docker build -t moj-docker/web -f imagens/web/Dockerfile .
-# judge: primeiro o rootfs dos compiladores (demora: são uns 2 GB de toolchains)
-docker build --build-arg PKGS= -t moj-docker/sysroot -f vendor/mojtools/sysroot/Containerfile vendor/mojtools/sysroot
-docker build -t moj-docker/judge -f imagens/judge/Dockerfile .
+docker buildx bake --load
 ```
 
-Para usar as imagens locais, crie um arquivo que troque o `image:` de cada serviço e junte-o aos
-outros com mais um `-f`.
+O `docker-bake.hcl` descreve as cinco imagens e constrói cada base antes da imagem que depende
+dela. A primeira vez demora: só os compiladores são uns 2 GB. As imagens saem com a tag `local`;
+para usá-las, rode o teste de ponta a ponta, que já sobe a stack com elas:
 
-## Atualizar o MOJ
+```sh
+tests/e2e/run.sh            # MANTER=1 deixa a stack de pé em http://localhost:18080
+```
 
-O upstream muda quase todo dia. Para atualizar, mova os submódulos para o commit novo num PR:
+## Como publicar
+
+Quem publica é o CI (`.github/workflows/publica-imagem.yml`):
+
+- Num pull request, ele constrói as imagens, roda o lint e o teste de ponta a ponta, sem
+  publicar nada.
+- Na `development`, ele publica as imagens com a tag `sha-<commit>` e as testa.
+- Na `main`, ele publica, testa e o job `implanta` grava os digests novos no
+  `docker-compose.yml`. Quem acompanha esse arquivo (o Portainer do PET) aplica em até um minuto.
+  Para voltar, basta dar `git revert` no commit `deploy:`.
+- Numa versão, criada como release no GitHub com uma tag `X.Y.Z` na `main`, o
+  `versiona.yml` dá as tags `X.Y.Z`, `X.Y` e `latest` às imagens que estão em produção naquele
+  commit, sem reconstruir nada, e anexa ao release os arquivos do compose.
+
+## Como atualizar o MOJ
+
+O MOJ muda quase todo dia. Uma vez por mês o Dependabot abre um PR contra a `development` que
+move os três submódulos para o commit mais novo do upstream, e o CI roda o teste de ponta a ponta
+com eles. Para atualizar fora dessa data, faça o mesmo à mão:
 
 ```sh
 for r in cdmoj mojtools cdjudge; do git -C vendor/$r fetch && git -C vendor/$r checkout origin/master; done
 git add vendor && git commit -m "Atualiza o MOJ"
 ```
 
-O CI constrói as imagens no PR. Depois do merge, o job `implanta` grava os digests novos no
-`docker-compose.yml`, e o Portainer de quem acompanha o repositório aplica a mudança em até
-um minuto. Para voltar, basta dar `git revert` no commit `deploy:`. Perto de uma prova, a
-versão fica congelada.
+Perto de uma prova, a versão fica congelada: o PR do Dependabot espera a prova passar.
+
+## Como contribuir
+
+Veja o [CONTRIBUTING](CONTRIBUTING.md): o fluxo de branches, como testar e como rodar o lint
+antes de abrir o PR.
 
 ## Problemas conhecidos
 
-- **Memória no juiz em container:** o limite por solução não é rígido (ver acima).
-- **Caminhos rápidos desligados:** o pool de workers e o leitor rápido das rotas mais acessadas
+- Memória no juiz em container: o limite por solução não é rígido (ver
+  [O juiz](#o-juiz-no-container-ou-na-máquina)).
+- Juiz em container no Ubuntu 24.04: todo envio dá Compilation Error, e o relatório mostra
+  `bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`. O AppArmor do 24.04 tira as
+  permissões de dentro do user namespace que a jaula cria. Resolve com
+  `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` na máquina (para manter depois
+  de reiniciar, ponha a linha num arquivo em `/etc/sysctl.d/`). No Ubuntu 26.04 não é preciso:
+  testado com o valor padrão.
+- Caminhos rápidos desligados: o pool de workers e o leitor rápido das rotas mais acessadas
   (`MOLDE_DISABLE`, `PORTEIRO_DISABLE`) exigem trechos de configuração no nginx que ainda não
   estão aqui. Só fazem diferença com milhares de acessos simultâneos.
-- **Telão do Animeitor desligado** (`ANIMEITOR_FEED_DISABLE`).
-- **Cadastro no treino:** no MOJ, ele é confirmado por um bot do Telegram, que ainda não está no
+- Telão do Animeitor desligado (`ANIMEITOR_FEED_DISABLE`).
+- Cadastro no treino: no MOJ, ele é confirmado por um bot do Telegram, que ainda não está no
   compose. Até lá, as contas são criadas pelo administrador.
-- **Rotinas diárias** do cdmoj (limpeza de relatórios antigos e de processos órfãos) ainda não
+- Rotinas diárias do MOJ (limpeza de relatórios antigos e de processos órfãos) ainda não
   rodam.
 
 ## Quem usa
 
+<p align="left">
+  <a href="https://pet.inf.ufes.br" target="_blank">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/1/18/Marca_Ufes_SVG.svg" alt="Ufes" height="100" hspace="10" align="top" />
+  </a>
+</p>
+
 - **PET Engenharia de Computação da Ufes**, em <https://moj.pet.inf.ufes.br>: treino e provas do
-  Topcom, o torneio de programação da Ufes.
+  Topcom.
+
+Usa o moj-docker? Abra um PR acrescentando a sua instituição aqui.
 
 ## Licença
 
-Os arquivos deste repositório (composes, Dockerfiles, scripts e documentação) estão sob a
-licença MIT (`LICENSE`). Os submódulos em `vendor/` são dos seus autores e seguem as licenças
-dos repositórios originais.
+Copyright (c) 2026 PET Engenharia de Computação, Universidade Federal do Espírito Santo (Ufes).
+
+Os arquivos deste repositório (composes, Dockerfiles, scripts, testes e documentação) estão sob
+a licença MIT ([LICENSE](LICENSE)). Os submódulos em `vendor/` são dos seus autores e seguem as
+licenças dos repositórios originais.
+
+## Suporte
+
+Dúvidas e problemas do moj-docker vão nas
+[issues](https://github.com/pet-eng-comp-org/moj-docker/issues). Falha de segurança, pelo relato
+privado descrito no [SECURITY](SECURITY.md).

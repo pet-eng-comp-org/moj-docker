@@ -1,0 +1,32 @@
+# Usado só pelo tests/e2e/run.sh: as imagens da tag em teste e nomes próprios para os
+# containers e os volumes, para o teste não encostar numa instância que já exista na máquina.
+x-server: &server
+  image: ${REGISTRY}/server:${TAG}
+
+services:
+  api:
+    <<: *server
+    container_name: moj-e2e_api
+    environment:
+      MOJ_ADMIN_PASSWORD: ${MOJ_ADMIN_PASSWORD}
+  judged:
+    <<: *server
+    container_name: moj-e2e_judged
+  web:
+    image: ${REGISTRY}/web:${TAG}
+    container_name: moj-e2e_web
+  judge:
+    image: ${REGISTRY}/judge:${TAG}
+    container_name: moj-e2e_judge
+
+volumes:
+  run:
+    name: moj-e2e_run
+  contests:
+    name: moj-e2e_contests
+  problems:
+    name: moj-e2e_problems
+  news:
+    name: moj-e2e_news
+  judge-cache:
+    name: moj-e2e_judge-cache
