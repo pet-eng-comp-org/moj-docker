@@ -66,7 +66,10 @@ jobs:
           files: docker-bake.hcl
           load: true
 
+      # O runner é Ubuntu 24.04: lá a jaula do juiz falha ("bwrap: loopback: Failed RTM_NEWADDR")
+      # enquanto o AppArmor restringe user namespaces (README, "Problemas conhecidos").
+      - name: Libera user namespaces para a jaula do juiz
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
       - name: Roda o teste
-        run: |
-          sysctl kernel.apparmor_restrict_unprivileged_userns kernel.unprivileged_userns_clone || true
-          tests/e2e/run.sh
+        run: tests/e2e/run.sh
