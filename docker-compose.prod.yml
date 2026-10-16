@@ -26,23 +26,26 @@ x-moj: &moj
     - problems:/data/moj-problems
     - news:/data/news
   networks:
-    - interna
+    - internal
 
 services:
   api:
     <<: *moj
+    container_name: moj_api
     command: api
     sysctls:
       net.core.somaxconn: 10000
 
   judged:
     <<: *moj
+    container_name: moj_judged
     command: judged
     environment:
       <<: *env
       JUDGE_BACKEND: queue
 
   web:
+    container_name: moj_web
     image: ghcr.io/pet-eng-comp-org/moj/web:sha-fa032c3ed4c1cc0019273a13a52fac2f4330687c@sha256:58bdc5c371ba80c4bb13021ea3ecb7d5c3574df7c8d469e1f5930bb5bd2fc33e
     restart: unless-stopped
     depends_on: [api]
@@ -63,17 +66,28 @@ services:
       - "traefik.http.services.moj_web.loadbalancer.server.port=80"
     networks:
       - traefik
-      - interna
+      - internal
 
+# Volumes da stack inteira (api, judged e web montam os mesmos): <stack>_<conteúdo>.
 volumes:
   run:
+    external: true
+    name: moj_run
   contests:
+    external: true
+    name: moj_contests
   problems:
+    external: true
+    name: moj_problems
   news:
+    external: true
+    name: moj_news
 
 networks:
   traefik:
     name: traefik
     external: true
-  # api e judged fora da rede compartilhada: só o nginx fala com eles (pelo socket no volume run)
-  interna:
+  # api e judged fora da rede compartilhada e sem internet: só o nginx fala com eles, pelo socket
+  # no volume run, e os juízes chegam pela API pública
+  internal:
+    internal: true
