@@ -287,6 +287,12 @@ antes de abrir o PR.
 
 - Memória no juiz em container: o limite por solução não é rígido (ver
   [O juiz](#o-juiz-no-container-ou-na-máquina)).
+- Juiz em container no Ubuntu 24.04: todo envio dá Compilation Error, e o relatório mostra
+  `bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`. O AppArmor do 24.04 tira as
+  permissões de dentro do user namespace que a jaula cria. Resolve com
+  `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` na máquina (para manter depois
+  de reiniciar, ponha a linha num arquivo em `/etc/sysctl.d/`). No Ubuntu 26.04 não é preciso:
+  testado com o valor padrão.
 - Caminhos rápidos desligados: o pool de workers e o leitor rápido das rotas mais acessadas
   (`MOLDE_DISABLE`, `PORTEIRO_DISABLE`) exigem trechos de configuração no nginx que ainda não
   estão aqui. Só fazem diferença com milhares de acessos simultâneos.
