@@ -1,0 +1,37 @@
+# Padrão do PET para dependências (o mesmo em todos os repositórios):
+# - semanal, às segundas;
+# - minor e patch num PR por grupo; major sempre em PR próprio, para ser lido
+#   e testado sozinho;
+# - as correções de segurança vêm juntas num PR só.
+# Mesclar um PR daqui passa pelo CI e, na branch principal, implanta.
+
+version: 2
+
+updates:
+  # Atualizar o MOJ é mover os submódulos de vendor/ para o commit novo do
+  # upstream (cd-moj); o Dependabot abre esse PR, e o CI constrói as imagens.
+  # Mensal: o upstream muda pouco, e cada atualização pede um teste no juiz.
+  - package-ecosystem: gitsubmodule
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      moj:
+        patterns: ["*"]
+
+  # A base do server e o sysroot do judge vêm de vendor/; aqui só as de fora.
+  - package-ecosystem: docker
+    directories:
+      - /imagens/web
+      - /imagens/judge
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
