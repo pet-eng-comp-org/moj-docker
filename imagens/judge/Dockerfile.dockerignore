@@ -1,0 +1,8 @@
+**
+!imagens/judge/
+!vendor/cdjudge/
+!vendor/mojtools/
+**/.git
+vendor/mojtools/sysroot/rootfs/
+vendor/cdjudge/etc/worker.token
+vendor/cdjudge/etc/agent.env

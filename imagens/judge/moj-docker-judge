@@ -1,0 +1,11 @@
+#!/bin/bash
+# Sobe o agente do juiz. Espera o token (o "api" o cria na primeira subida) e a API responder.
+set -u
+for i in $(seq 120); do
+  [[ -s "$WORKER_TOKEN_FILE" ]] && curl -fsS -m 5 -o /dev/null "$MOJ_API/" 2>/dev/null && break
+  (( i == 1 )) && echo "moj-docker-judge: esperando o token em $WORKER_TOKEN_FILE e a API em $MOJ_API"
+  sleep 2
+done
+mkdir -p "$JUDGE_CACHE"
+ulimit -u "$(ulimit -Hu)" 2>/dev/null || true   # a calibração cria muitos processos
+exec bash agent/moj-agent.sh

@@ -1,0 +1,55 @@
+#!/bin/bash
+# Primeira subida do moj-docker: no papel "api", cria o que o MOJ exige que nasça à mão
+# (cdmoj/docs/ADMIN.md, seções 2 e 5) e depois entrega ao entrypoint do cdmoj.
+#   - o contest "treino" (a hub de problemas, orgs e permissões);
+#   - a primeira conta .admin, superadmin do treino (MOJ_ADMIN, padrão "admin.admin");
+#   - o token dos juízes em $RUNDIR/secrets/worker.token (ou o de MOJ_WORKER_TOKEN), com uma
+#     cópia em $RUNDIR/judge/ para o container do juiz.
+# Nada é sobrescrito: com o treino ou o token já existentes, este passo não faz nada.
+set -euo pipefail
+: "${CONTESTSDIR:=/data/contests}"
+: "${RUNDIR:=/data/run}"
+
+if [[ "${1:-api}" == api ]]; then
+  SEG="$RUNDIR/secrets"
+  mkdir -p "$SEG" && chmod 700 "$SEG"
+  if [[ ! -s "$SEG/worker.token" ]]; then
+    tok="${MOJ_WORKER_TOKEN:-mojw_$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9')}"
+    ( umask 077; printf '%s' "$tok" > "$SEG/worker.token" )
+    echo "moj-docker: token dos juízes criado em $SEG/worker.token"
+  fi
+  # cópia para o container do juiz, que roda como juiz (uid 1000) e monta só esta pasta
+  J="$RUNDIR/judge"
+  mkdir -p "$J" && chown 1000:1000 "$J" && chmod 700 "$J"
+  if ! cmp -s "$SEG/worker.token" "$J/worker.token"; then
+    install -m 600 -o 1000 -g 1000 "$SEG/worker.token" "$J/worker.token"
+  fi
+  if [[ ! -e "$CONTESTSDIR/treino/conf" ]]; then
+    adm="${MOJ_ADMIN:-admin.admin}"
+    [[ "$adm" == *.admin ]] || { echo "moj-docker: MOJ_ADMIN precisa terminar em .admin" >&2; exit 1; }
+    pw="${MOJ_ADMIN_PASSWORD:-}"
+    gerada=0
+    [[ -n "$pw" ]] || { pw="$(head -c 18 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 16)"; gerada=1; }
+    [[ "$pw" != *:* ]] || { echo "moj-docker: a senha não pode ter ':'" >&2; exit 1; }
+    mkdir -p "$CONTESTSDIR/treino"
+    # date entre aspas simples de propósito: o conf é relido a cada acesso e o treino nunca acaba
+    cat > "$CONTESTSDIR/treino/conf" <<CONF
+CONTEST_ID=treino
+CONTEST_NAME="${MOJ_TREINO_NOME:-Treino Livre}"
+CONTEST_TYPE=lista-publica
+CONTEST_END="\$(date --date="next year" +%s)"
+SUPERADMINS=$adm
+CONF
+    # shellcheck disable=SC1091
+    source "$MOJ_HOME/server/api/v1/lib/users.sh"
+    user_create treino "$adm" "${MOJ_ADMIN_NOME:-Administrador}" "$pw" >/dev/null
+    echo "moj-docker: treino criado; superadmin: $adm"
+    if (( gerada )); then
+      # o log se perde quando o container é recriado: a senha também fica no volume
+      ( umask 077; printf '%s %s\n' "$adm" "$pw" > "$SEG/senha-admin" )
+      echo "moj-docker: senha gerada para $adm: $pw   (também em $SEG/senha-admin; troque depois em Perfil)"
+    fi
+  fi
+fi
+
+exec /opt/moj/bin/moj-entrypoint "$@"

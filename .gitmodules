@@ -4,3 +4,6 @@
 [submodule "vendor/mojtools"]
 	path = vendor/mojtools
 	url = https://github.com/cd-moj/mojtools.git
+[submodule "vendor/cdjudge"]
+	path = vendor/cdjudge
+	url = https://github.com/cd-moj/cdjudge.git
