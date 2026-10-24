@@ -46,7 +46,7 @@ group "default" {
 }
 
 target "server-base" {
-  # o .dockerignore deste contexto é um link para o .containerignore do cdmoj
+  # o .dockerignore deste contexto é cópia do .containerignore do cdmoj (o CI confere)
   context    = "vendor"
   dockerfile = "cdmoj/deploy/Containerfile"
   tags       = tags("server-base")
