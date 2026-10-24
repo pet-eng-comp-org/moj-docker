@@ -45,6 +45,15 @@ jobs:
         with:
           submodules: true
 
+      # O Portainer recusa clonar repositório com symlink, e a stack para de
+      # implantar sem aviso. Por isso o .dockerignore do vendor é cópia, não link.
+      - name: Sem symlink e .dockerignore igual ao do cdmoj
+        run: |
+          links=$(git ls-files -s | awk '$1 == "120000" {print $4}')
+          [ -z "$links" ] || { echo "::error::symlink no repositório: $links"; exit 1; }
+          cmp vendor/.dockerignore vendor/cdmoj/deploy/.containerignore \
+            || { echo "::error::copie vendor/cdmoj/deploy/.containerignore para vendor/.dockerignore"; exit 1; }
+
       - uses: docker/setup-buildx-action@v4
 
       - if: env.PUBLICA == 'true'
