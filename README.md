@@ -306,7 +306,14 @@ antes de abrir o PR.
 
 <p align="left">
   <a href="https://pet.inf.ufes.br" target="_blank">
-    <img src="https://upload.wikimedia.org/wikipedia/commons/1/18/Marca_Ufes_SVG.svg" alt="Ufes" height="100" hspace="10" align="top" />
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="imgs/pet-fundo-escuro.svg">
+      <img src="imgs/pet-fundo-claro.svg" alt="PET Eng Comp UFES" height="100" hspace="8" align="top" />
+    </picture>
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="imgs/ufes-branca.svg">
+      <img src="imgs/ufes-cor.svg" alt="Ufes" height="100" hspace="8" align="top" />
+    </picture>
   </a>
 </p>
 
