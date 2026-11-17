@@ -1,0 +1,2 @@
+# O GitHub lia o .snippet do nginx como Vim Snippet e mostrava o repo com essa linguagem.
+*.snippet linguist-language=Nginx
